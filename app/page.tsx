@@ -193,61 +193,63 @@ function BarChart({
   const maxValue = 100;
 
   return (
-    <div className="chart-box">
-      <div className="chart-title">{title}</div>
-      <div className="chart-legend">
-        <span>
-          <i className="dot before" /> Before
-        </span>
-        <span>
-          <i className="dot after" /> After
-        </span>
-      </div>
-      <div
-        className="bars-wrap"
-        style={{ gridTemplateColumns: `repeat(${maxLength}, minmax(20px, 1fr))` }}
-      >
-        {Array.from({ length: maxLength }).map((_, index) => {
-          const before = beforeData[index];
-          const after = afterData[index];
-          return (
-            <div className="bar-group" key={`run-${index + 1}`}>
-              <div className="bars">
-                <div
-                  className="bar before"
-                  style={{
-                    height:
+    <div className="card border border-base-300 bg-base-100 shadow-sm">
+      <div className="card-body gap-3 p-4">
+        <div className="card-title text-base">{title}</div>
+        <div className="flex flex-wrap gap-4 text-xs text-base-content/70">
+          <span>
+           <i className="dot before" /> Before
+         </span>
+         <span>
+           <i className="dot after" /> After
+         </span>
+        </div>
+        <div
+          className="bars-wrap"
+          style={{ gridTemplateColumns: `repeat(${maxLength}, minmax(20px, 1fr))` }}
+        >
+          {Array.from({ length: maxLength }).map((_, index) => {
+            const before = beforeData[index];
+            const after = afterData[index];
+            return (
+              <div className="bar-group" key={`run-${index + 1}`}>
+                <div className="bars">
+                  <div
+                    className="bar before"
+                    style={{
+                      height:
+                        typeof before === "number"
+                          ? `${(before / maxValue) * 100}%`
+                          : "0%",
+                      opacity: typeof before === "number" ? 1 : 0.2,
+                    }}
+                    title={
                       typeof before === "number"
-                        ? `${(before / maxValue) * 100}%`
-                        : "0%",
-                    opacity: typeof before === "number" ? 1 : 0.2,
-                  }}
-                  title={
-                    typeof before === "number"
-                      ? `Before: ${before.toFixed(1)}`
-                      : "Before: N/A"
-                  }
-                />
-                <div
-                  className="bar after"
-                  style={{
-                    height:
+                        ? `Before: ${before.toFixed(1)}`
+                        : "Before: N/A"
+                    }
+                  />
+                  <div
+                    className="bar after"
+                    style={{
+                      height:
+                        typeof after === "number"
+                          ? `${(after / maxValue) * 100}%`
+                          : "0%",
+                      opacity: typeof after === "number" ? 1 : 0.2,
+                    }}
+                    title={
                       typeof after === "number"
-                        ? `${(after / maxValue) * 100}%`
-                        : "0%",
-                    opacity: typeof after === "number" ? 1 : 0.2,
-                  }}
-                  title={
-                    typeof after === "number"
-                      ? `After: ${after.toFixed(1)}`
-                      : "After: N/A"
-                  }
-                />
+                        ? `After: ${after.toFixed(1)}`
+                        : "After: N/A"
+                    }
+                  />
+                </div>
+                <div className="bar-label">{index + 1}</div>
               </div>
-              <div className="bar-label">{index + 1}</div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -261,9 +263,11 @@ function SummaryTable({
   rows: SummaryEntry[];
 }) {
   return (
-    <div>
-      <div className="note">{title}</div>
-      <table>
+    <div className="card border border-base-300 bg-base-100 shadow-sm">
+      <div className="card-body p-4">
+        <div className="mb-2 text-sm font-semibold text-base-content/70">{title}</div>
+        <div className="overflow-x-auto">
+          <table className="table table-zebra table-sm">
         <thead>
           <tr>
             <th>Item</th>
@@ -278,11 +282,15 @@ function SummaryTable({
               <td>{row.label}</td>
               <td>{row.beforeText}</td>
               <td>{row.afterText}</td>
-              <td className={row.deltaClass}>{row.deltaText}</td>
+              <td>
+                <span className={`badge badge-soft ${row.deltaClass}`}>{row.deltaText}</span>
+              </td>
             </tr>
           ))}
         </tbody>
-      </table>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -368,6 +376,106 @@ function fmtCard(value: number | null) {
   return value === null ? "N/A" : value.toFixed(1);
 }
 
+function fileKey(file: File) {
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
+
+function mergeFiles(current: File[], incoming: File[]) {
+  const next = [...current];
+  const seen = new Set(current.map(fileKey));
+
+  for (const file of incoming) {
+    if (file.type === "application/json" || file.name.endsWith(".json")) {
+      const key = fileKey(file);
+      if (!seen.has(key)) {
+        seen.add(key);
+        next.push(file);
+      }
+    }
+  }
+
+  return next.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true }),
+  );
+}
+
+function FileDropzone({
+  title,
+  files,
+  onChange,
+  onClear,
+}: {
+  title: string;
+  files: File[];
+  onChange: (files: File[]) => void;
+  onClear: () => void;
+}) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  function addFiles(incoming: File[]) {
+    onChange(mergeFiles(files, incoming));
+  }
+
+  return (
+    <div
+      className={`card border-2 border-dashed bg-base-100 transition ${isDragging ? "border-primary" : "border-base-300"}`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault();
+        setIsDragging(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsDragging(false);
+        addFiles(Array.from(event.dataTransfer.files ?? []));
+      }}
+    >
+      <div className="card-body gap-3 p-4">
+        <div className="uploader-head">
+          <span className="text-sm font-semibold">{title}</span>
+          <button type="button" className="btn btn-xs btn-ghost" onClick={onClear}>
+            Clear
+          </button>
+        </div>
+        <small className="text-xs text-base-content/70">
+          Drag and drop JSON files here or select files.
+        </small>
+        <input
+          type="file"
+          multiple
+          accept="application/json,.json"
+          className="file-input file-input-bordered file-input-sm w-full"
+          onChange={(event) => addFiles(Array.from(event.target.files ?? []))}
+        />
+
+        <div className="file-list">
+          {files.length ? (
+            files.map((file, index) => (
+              <div className="file-item" key={fileKey(file)}>
+                <span title={file.name}>{file.name}</span>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline btn-error"
+                  onClick={() => {
+                    onChange(files.filter((_, itemIndex) => itemIndex !== index));
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="file-empty">No files selected.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const [beforeDesktopFiles, setBeforeDesktopFiles] = useState<File[]>([]);
   const [afterDesktopFiles, setAfterDesktopFiles] = useState<File[]>([]);
@@ -406,126 +514,164 @@ export default function Home() {
     } catch {
       setResult(null);
       setError(
-        "Nao foi possivel ler os JSON. Verifique se todos os arquivos sao relatórios validos do Lighthouse.",
+        "Could not parse the JSON files. Please confirm all files are valid Lighthouse reports.",
       );
     } finally {
       setLoading(false);
     }
   }
 
+  function clearAllFiles() {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all uploaded files?",
+    );
+    if (!confirmed) return;
+
+    setBeforeDesktopFiles([]);
+    setAfterDesktopFiles([]);
+    setBeforeMobileFiles([]);
+    setAfterMobileFiles([]);
+    setResult(null);
+    setError(null);
+  }
+
+  function swapBeforeAfterFiles() {
+    setBeforeDesktopFiles(afterDesktopFiles);
+    setAfterDesktopFiles(beforeDesktopFiles);
+    setBeforeMobileFiles(afterMobileFiles);
+    setAfterMobileFiles(beforeMobileFiles);
+    setResult(null);
+    setError(null);
+  }
+
   return (
-    <main className="page">
-      <section className="hero">
-        <h1>Lighthouse Before vs After</h1>
-        <p>
-          Faça upload dos JSONs de desktop e mobile para before e after.
-          Geramos os cards, gráfico por execução e tabelas de comparação.
+    <main className="page pb-10">
+      <section className="hero-bg rounded-3xl border border-base-300 p-6 shadow-lg md:p-10 animate-enter">
+        <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">
+          Lighthouse Before vs After
+        </h1>
+        <p className="mt-4 max-w-2xl text-sm text-base-content/75 md:text-base">
+          Upload desktop and mobile JSON reports for before and after. We generate
+          summary cards, per-run charts, and comparison tables.
         </p>
       </section>
 
-      <section className="panel">
-        <h2>Upload de arquivos</h2>
+      <section className="card mt-6 border border-base-300 bg-base-100/90 shadow-md backdrop-blur animate-enter-delayed">
+        <div className="card-body p-5 md:p-6">
+        <h2 className="card-title">Upload files</h2>
+        <div className="upload-actions">
+          <button
+            className="btn btn-sm btn-outline"
+            type="button"
+            onClick={swapBeforeAfterFiles}
+            disabled={!canCompare && !beforeDesktopFiles.length && !afterDesktopFiles.length && !beforeMobileFiles.length && !afterMobileFiles.length}
+          >
+            Swap Before/After
+          </button>
+          <button
+            className="btn btn-sm btn-outline btn-error"
+            type="button"
+            onClick={clearAllFiles}
+            disabled={!beforeDesktopFiles.length && !afterDesktopFiles.length && !beforeMobileFiles.length && !afterMobileFiles.length}
+          >
+            Clear all files
+          </button>
+        </div>
         <div className="upload-grid">
-          <label className="uploader">
-            <span>Before Desktop</span>
-            <input
-              type="file"
-              multiple
-              accept="application/json,.json"
-              onChange={(event) =>
-                setBeforeDesktopFiles(Array.from(event.target.files ?? []))
-              }
-            />
-            <small>{beforeDesktopFiles.length} arquivo(s)</small>
-          </label>
+          <FileDropzone
+            title="Before Desktop"
+            files={beforeDesktopFiles}
+            onChange={setBeforeDesktopFiles}
+            onClear={() => {
+              setBeforeDesktopFiles([]);
+              setResult(null);
+            }}
+          />
 
-          <label className="uploader">
-            <span>After Desktop</span>
-            <input
-              type="file"
-              multiple
-              accept="application/json,.json"
-              onChange={(event) =>
-                setAfterDesktopFiles(Array.from(event.target.files ?? []))
-              }
-            />
-            <small>{afterDesktopFiles.length} arquivo(s)</small>
-          </label>
+          <FileDropzone
+            title="After Desktop"
+            files={afterDesktopFiles}
+            onChange={setAfterDesktopFiles}
+            onClear={() => {
+              setAfterDesktopFiles([]);
+              setResult(null);
+            }}
+          />
 
-          <label className="uploader">
-            <span>Before Mobile</span>
-            <input
-              type="file"
-              multiple
-              accept="application/json,.json"
-              onChange={(event) =>
-                setBeforeMobileFiles(Array.from(event.target.files ?? []))
-              }
-            />
-            <small>{beforeMobileFiles.length} arquivo(s)</small>
-          </label>
+          <FileDropzone
+            title="Before Mobile"
+            files={beforeMobileFiles}
+            onChange={setBeforeMobileFiles}
+            onClear={() => {
+              setBeforeMobileFiles([]);
+              setResult(null);
+            }}
+          />
 
-          <label className="uploader">
-            <span>After Mobile</span>
-            <input
-              type="file"
-              multiple
-              accept="application/json,.json"
-              onChange={(event) =>
-                setAfterMobileFiles(Array.from(event.target.files ?? []))
-              }
-            />
-            <small>{afterMobileFiles.length} arquivo(s)</small>
-          </label>
+          <FileDropzone
+            title="After Mobile"
+            files={afterMobileFiles}
+            onChange={setAfterMobileFiles}
+            onClear={() => {
+              setAfterMobileFiles([]);
+              setResult(null);
+            }}
+          />
         </div>
 
         <button
-          className="primary-btn"
+          className="btn btn-primary mt-2 w-full md:w-auto"
           type="button"
           onClick={handleCompare}
           disabled={!canCompare || loading}
         >
-          {loading ? "Comparando..." : "Comparar resultados"}
+          {loading ? "Comparing..." : "Compare results"}
         </button>
 
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <div className="alert alert-error mt-3 py-2 text-sm">{error}</div> : null}
+        </div>
       </section>
 
       {result ? (
-        <section className="results">
-          <div className="meta">
-            Desktop {result.counts.beforeDesktop} {"->"} {result.counts.afterDesktop} execucoes | Mobile{" "}
-            {result.counts.beforeMobile} {"->"} {result.counts.afterMobile} execucoes
+        <section className="results mt-6 space-y-6 animate-enter-delayed-2">
+          <div className="meta text-sm">
+            Desktop runs: {result.counts.beforeDesktop} {"->"} {result.counts.afterDesktop} | Mobile runs:{" "}
+            {result.counts.beforeMobile} {"->"} {result.counts.afterMobile}
           </div>
 
           <div className="cards">
-            <article className="card">
-              <span>Performance media (Desktop)</span>
-              <strong>
+            <article className="stat rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+              <div className="stat-title">Average performance (Desktop)</div>
+              <div className="stat-value text-3xl">
                 {fmtCard(result.desktopPerformance.before)} {"->"} {" "}
                 {fmtCard(result.desktopPerformance.after)}
-              </strong>
-              <b className={result.desktopPerformance.deltaClass}>
-                {result.desktopPerformance.deltaText}
-              </b>
+              </div>
+              <div className="stat-desc">
+                <span className={`badge badge-soft ${result.desktopPerformance.deltaClass}`}>
+                  {result.desktopPerformance.deltaText}
+                </span>
+              </div>
             </article>
 
-            <article className="card">
-              <span>Performance media (Mobile)</span>
-              <strong>
+            <article className="stat rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+              <div className="stat-title">Average performance (Mobile)</div>
+              <div className="stat-value text-3xl">
                 {fmtCard(result.mobilePerformance.before)} {"->"} {" "}
                 {fmtCard(result.mobilePerformance.after)}
-              </strong>
-              <b className={result.mobilePerformance.deltaClass}>
-                {result.mobilePerformance.deltaText}
-              </b>
+              </div>
+              <div className="stat-desc">
+                <span className={`badge badge-soft ${result.mobilePerformance.deltaClass}`}>
+                  {result.mobilePerformance.deltaText}
+                </span>
+              </div>
             </article>
           </div>
 
-          <div className="panel">
-            <h2>Performance por execucao</h2>
-            <p className="note">
-              Cada barra representa uma execucao (escala de 0 a 100).
+          <div className="card border border-base-300 bg-base-100 shadow-md">
+            <div className="card-body p-5 md:p-6">
+            <h2 className="card-title">Performance per run</h2>
+            <p className="note text-sm text-base-content/70">
+              Each bar represents one Lighthouse run (0 to 100 scale).
             </p>
             <div className="charts-grid">
               <BarChart
@@ -539,27 +685,32 @@ export default function Home() {
                 afterData={result.mobileRuns.after}
               />
             </div>
+            </div>
           </div>
 
-          <div className="panel">
-            <h2>Categorias Lighthouse (media)</h2>
+          <div className="card border border-base-300 bg-base-100 shadow-md">
+            <div className="card-body p-5 md:p-6">
+            <h2 className="card-title">Lighthouse categories (average)</h2>
             <div className="table-grid">
               <SummaryTable title="Desktop" rows={result.categoriesDesktop} />
               <SummaryTable title="Mobile" rows={result.categoriesMobile} />
             </div>
+            </div>
           </div>
 
-          <div className="panel">
-            <h2>Metricas tecnicas (media)</h2>
+          <div className="card border border-base-300 bg-base-100 shadow-md">
+            <div className="card-body p-5 md:p-6">
+            <h2 className="card-title">Technical metrics (average)</h2>
             <div className="table-grid">
               <SummaryTable
-                title="Desktop (menor e melhor)"
+                title="Desktop (lower is better)"
                 rows={result.metricsDesktop}
               />
               <SummaryTable
-                title="Mobile (menor e melhor)"
+                title="Mobile (lower is better)"
                 rows={result.metricsMobile}
               />
+            </div>
             </div>
           </div>
         </section>
