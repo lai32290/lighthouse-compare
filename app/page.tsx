@@ -490,15 +490,19 @@ export default function Home() {
   const [activePerformanceTab, setActivePerformanceTab] = useState<
     "desktop" | "mobile"
   >("desktop");
+  const hasDesktopPair =
+    beforeDesktopFiles.length > 0 && afterDesktopFiles.length > 0;
+  const hasMobilePair =
+    beforeMobileFiles.length > 0 && afterMobileFiles.length > 0;
+  const hasAnyFiles =
+    beforeDesktopFiles.length > 0 ||
+    afterDesktopFiles.length > 0 ||
+    beforeMobileFiles.length > 0 ||
+    afterMobileFiles.length > 0;
 
   const canCompare = useMemo(() => {
-    return (
-      beforeDesktopFiles.length > 0 &&
-      afterDesktopFiles.length > 0 &&
-      beforeMobileFiles.length > 0 &&
-      afterMobileFiles.length > 0
-    );
-  }, [beforeDesktopFiles, afterDesktopFiles, beforeMobileFiles, afterMobileFiles]);
+    return hasDesktopPair || hasMobilePair;
+  }, [hasDesktopPair, hasMobilePair]);
 
   async function handleCompare() {
     setLoading(true);
@@ -513,9 +517,26 @@ export default function Home() {
           parseFiles(afterMobileFiles),
         ]);
 
-      setResult(
-        buildComparison(beforeDesktop, afterDesktop, beforeMobile, afterMobile),
+      const nextResult = buildComparison(
+        beforeDesktop,
+        afterDesktop,
+        beforeMobile,
+        afterMobile,
       );
+      setResult(nextResult);
+
+      const hasDesktopResult =
+        nextResult.counts.beforeDesktop > 0 && nextResult.counts.afterDesktop > 0;
+      const hasMobileResult =
+        nextResult.counts.beforeMobile > 0 && nextResult.counts.afterMobile > 0;
+
+      if (hasDesktopResult && !hasMobileResult) {
+        setActivePerformanceTab("desktop");
+      }
+
+      if (!hasDesktopResult && hasMobileResult) {
+        setActivePerformanceTab("mobile");
+      }
     } catch {
       setResult(null);
       setError(
@@ -569,7 +590,7 @@ export default function Home() {
             className="btn btn-sm btn-outline"
             type="button"
             onClick={swapBeforeAfterFiles}
-            disabled={!canCompare && !beforeDesktopFiles.length && !afterDesktopFiles.length && !beforeMobileFiles.length && !afterMobileFiles.length}
+            disabled={!canCompare && !hasAnyFiles}
           >
             Swap Before/After
           </button>
@@ -577,7 +598,7 @@ export default function Home() {
             className="btn btn-sm btn-outline btn-error"
             type="button"
             onClick={clearAllFiles}
-            disabled={!beforeDesktopFiles.length && !afterDesktopFiles.length && !beforeMobileFiles.length && !afterMobileFiles.length}
+            disabled={!hasAnyFiles}
           >
             Clear all files
           </button>
@@ -639,12 +660,26 @@ export default function Home() {
 
       {result ? (
         <section className="results mt-6 space-y-6 animate-enter-delayed-2">
+          {(() => {
+            const hasDesktopResult =
+              result.counts.beforeDesktop > 0 && result.counts.afterDesktop > 0;
+            const hasMobileResult =
+              result.counts.beforeMobile > 0 && result.counts.afterMobile > 0;
+
+            return (
+              <>
           <div className="meta text-sm">
-            Desktop runs: {result.counts.beforeDesktop} {"->"} {result.counts.afterDesktop} | Mobile runs:{" "}
-            {result.counts.beforeMobile} {"->"} {result.counts.afterMobile}
+            {hasDesktopResult
+              ? `Desktop runs: ${result.counts.beforeDesktop} -> ${result.counts.afterDesktop}`
+              : ""}
+            {hasDesktopResult && hasMobileResult ? " | " : ""}
+            {hasMobileResult
+              ? `Mobile runs: ${result.counts.beforeMobile} -> ${result.counts.afterMobile}`
+              : ""}
           </div>
 
           <div className="cards">
+            {hasDesktopResult ? (
             <article className="stat rounded-2xl border border-base-300 bg-base-100 shadow-sm">
               <div className="stat-title">Average performance (Desktop)</div>
               <div className="stat-value text-3xl">
@@ -657,7 +692,9 @@ export default function Home() {
                 </span>
               </div>
             </article>
+            ) : null}
 
+            {hasMobileResult ? (
             <article className="stat rounded-2xl border border-base-300 bg-base-100 shadow-sm">
               <div className="stat-title">Average performance (Mobile)</div>
               <div className="stat-value text-3xl">
@@ -670,6 +707,7 @@ export default function Home() {
                 </span>
               </div>
             </article>
+            ) : null}
           </div>
 
           <div className="card border border-base-300 bg-base-100 shadow-md">
@@ -678,6 +716,7 @@ export default function Home() {
               <p className="note text-sm text-base-content/70">
                 Each bar represents one Lighthouse run (0 to 100 scale).
               </p>
+              {hasDesktopResult && hasMobileResult ? (
               <div className="tabs tabs-box mt-2 w-fit bg-base-200 p-1">
                 <button
                   type="button"
@@ -694,20 +733,22 @@ export default function Home() {
                   Mobile
                 </button>
               </div>
+              ) : null}
               <div className="mt-4">
-                {activePerformanceTab === "desktop" ? (
+                {(hasDesktopResult && activePerformanceTab === "desktop") ||
+                (hasDesktopResult && !hasMobileResult) ? (
                   <BarChart
                     title="Desktop"
                     beforeData={result.desktopRuns.before}
                     afterData={result.desktopRuns.after}
                   />
-                ) : (
+                ) : hasMobileResult ? (
                   <BarChart
                     title="Mobile"
                     beforeData={result.mobileRuns.before}
                     afterData={result.mobileRuns.after}
                   />
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -716,8 +757,12 @@ export default function Home() {
             <div className="card-body p-5 md:p-6">
             <h2 className="card-title">Lighthouse categories (average)</h2>
             <div className="table-grid">
-              <SummaryTable title="Desktop" rows={result.categoriesDesktop} />
-              <SummaryTable title="Mobile" rows={result.categoriesMobile} />
+              {hasDesktopResult ? (
+                <SummaryTable title="Desktop" rows={result.categoriesDesktop} />
+              ) : null}
+              {hasMobileResult ? (
+                <SummaryTable title="Mobile" rows={result.categoriesMobile} />
+              ) : null}
             </div>
             </div>
           </div>
@@ -726,17 +771,24 @@ export default function Home() {
             <div className="card-body p-5 md:p-6">
             <h2 className="card-title">Technical metrics (average)</h2>
             <div className="table-grid">
-              <SummaryTable
-                title="Desktop (lower is better)"
-                rows={result.metricsDesktop}
-              />
-              <SummaryTable
-                title="Mobile (lower is better)"
-                rows={result.metricsMobile}
-              />
+              {hasDesktopResult ? (
+                <SummaryTable
+                  title="Desktop (lower is better)"
+                  rows={result.metricsDesktop}
+                />
+              ) : null}
+              {hasMobileResult ? (
+                <SummaryTable
+                  title="Mobile (lower is better)"
+                  rows={result.metricsMobile}
+                />
+              ) : null}
             </div>
             </div>
           </div>
+              </>
+            );
+          })()}
         </section>
       ) : null}
     </main>
