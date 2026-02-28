@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { InputHTMLAttributes } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type LighthouseReport = {
   categories?: Record<string, { score?: number | null }>;
@@ -93,6 +94,97 @@ const METRICS = [
     isCategory: false,
   },
 ];
+
+type EntryLike = {
+  isFile: boolean;
+  isDirectory: boolean;
+};
+
+type FileEntryLike = EntryLike & {
+  file: (
+    successCallback: (file: File) => void,
+    errorCallback?: (error: DOMException) => void,
+  ) => void;
+};
+
+type DirectoryReaderLike = {
+  readEntries: (
+    successCallback: (entries: EntryLike[]) => void,
+    errorCallback?: (error: DOMException) => void,
+  ) => void;
+};
+
+type DirectoryEntryLike = EntryLike & {
+  createReader: () => DirectoryReaderLike;
+};
+
+type DataTransferItemWithEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => EntryLike | null;
+};
+
+function isJsonFile(file: File) {
+  return file.type === "application/json" || file.name.endsWith(".json");
+}
+
+function readFileFromEntry(entry: FileEntryLike) {
+  return new Promise<File>((resolve, reject) => {
+    entry.file(resolve, reject);
+  });
+}
+
+function readEntriesBatch(reader: DirectoryReaderLike) {
+  return new Promise<EntryLike[]>((resolve, reject) => {
+    reader.readEntries(resolve, reject);
+  });
+}
+
+async function readAllDirectoryEntries(directory: DirectoryEntryLike) {
+  const reader = directory.createReader();
+  const all: EntryLike[] = [];
+
+  while (true) {
+    const batch = await readEntriesBatch(reader);
+    if (!batch.length) break;
+    all.push(...batch);
+  }
+
+  return all;
+}
+
+async function collectJsonFilesFromEntry(entry: EntryLike): Promise<File[]> {
+  if (entry.isFile) {
+    const file = await readFileFromEntry(entry as FileEntryLike);
+    return isJsonFile(file) ? [file] : [];
+  }
+
+  if (entry.isDirectory) {
+    const entries = await readAllDirectoryEntries(entry as DirectoryEntryLike);
+    const nestedFiles = await Promise.all(entries.map(collectJsonFilesFromEntry));
+    return nestedFiles.flat();
+  }
+
+  return [];
+}
+
+async function collectDroppedJsonFiles(dataTransfer: DataTransfer) {
+  const items = Array.from(dataTransfer.items ?? []);
+  const withEntry = items.filter(
+    (item): item is DataTransferItemWithEntry =>
+      typeof item.webkitGetAsEntry === "function",
+  );
+
+  if (withEntry.length) {
+    const fileGroups = await Promise.all(
+      withEntry.map((item) => {
+        const entry = item.webkitGetAsEntry?.();
+        return entry ? collectJsonFilesFromEntry(entry) : Promise.resolve([]);
+      }),
+    );
+    return fileGroups.flat();
+  }
+
+  return Array.from(dataTransfer.files ?? []).filter(isJsonFile);
+}
 
 function getValue(report: LighthouseReport, key: string, isCategory: boolean) {
   if (isCategory) {
@@ -387,7 +479,7 @@ function mergeFiles(current: File[], incoming: File[]) {
   const seen = new Set(current.map(fileKey));
 
   for (const file of incoming) {
-    if (file.type === "application/json" || file.name.endsWith(".json")) {
+    if (isJsonFile(file)) {
       const key = fileKey(file);
       if (!seen.has(key)) {
         seen.add(key);
@@ -413,6 +505,11 @@ function FileDropzone({
   onClear: () => void;
 }) {
   const [isDragging, setIsDragging] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const folderInputAttributes = {
+    webkitdirectory: "",
+    directory: "",
+  } as unknown as InputHTMLAttributes<HTMLInputElement>;
 
   function addFiles(incoming: File[]) {
     onChange(mergeFiles(files, incoming));
@@ -429,10 +526,11 @@ function FileDropzone({
         event.preventDefault();
         setIsDragging(false);
       }}
-      onDrop={(event) => {
+      onDrop={async (event) => {
         event.preventDefault();
         setIsDragging(false);
-        addFiles(Array.from(event.dataTransfer.files ?? []));
+        const droppedFiles = await collectDroppedJsonFiles(event.dataTransfer);
+        addFiles(droppedFiles);
       }}
     >
       <div className="card-body gap-3 p-4">
@@ -443,15 +541,33 @@ function FileDropzone({
           </button>
         </div>
         <small className="text-xs text-base-content/70">
-          Drag and drop JSON files here or select files.
+          Drag and drop JSON files or a folder here. You can also pick files or a
+          folder manually.
         </small>
-        <input
-          type="file"
-          multiple
-          accept="application/json,.json"
-          className="file-input file-input-bordered file-input-sm w-full"
-          onChange={(event) => addFiles(Array.from(event.target.files ?? []))}
-        />
+        <div className="flex flex-col gap-2 md:flex-row">
+          <input
+            type="file"
+            multiple
+            accept="application/json,.json"
+            className="file-input file-input-bordered file-input-sm w-full"
+            onChange={(event) => addFiles(Array.from(event.target.files ?? []))}
+          />
+          <button
+            type="button"
+            className="btn btn-sm btn-outline"
+            onClick={() => folderInputRef.current?.click()}
+          >
+            Select folder
+          </button>
+          <input
+            {...folderInputAttributes}
+            ref={folderInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => addFiles(Array.from(event.target.files ?? []))}
+          />
+        </div>
 
         <div className="file-list">
           {files.length ? (
