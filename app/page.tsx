@@ -1,6 +1,7 @@
 "use client";
 
 import type { InputHTMLAttributes } from "react";
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 
 type LighthouseReport = {
@@ -696,6 +697,11 @@ export default function Home() {
           Upload desktop and mobile JSON reports for before and after. We generate
           summary cards, per-run charts, and comparison tables.
         </p>
+        <div className="mt-5">
+          <Link href="/help" className="btn btn-outline btn-sm">
+            How to get JSON reports
+          </Link>
+        </div>
       </section>
 
       <section className="card mt-6 border border-base-300 bg-base-100/90 shadow-md backdrop-blur animate-enter-delayed">
