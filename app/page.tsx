@@ -485,6 +485,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ComparisonData | null>(null);
+  const [activePerformanceTab, setActivePerformanceTab] = useState<
+    "desktop" | "mobile"
+  >("desktop");
 
   const canCompare = useMemo(() => {
     return (
@@ -669,22 +672,41 @@ export default function Home() {
 
           <div className="card border border-base-300 bg-base-100 shadow-md">
             <div className="card-body p-5 md:p-6">
-            <h2 className="card-title">Performance per run</h2>
-            <p className="note text-sm text-base-content/70">
-              Each bar represents one Lighthouse run (0 to 100 scale).
-            </p>
-            <div className="charts-grid">
-              <BarChart
-                title="Desktop"
-                beforeData={result.desktopRuns.before}
-                afterData={result.desktopRuns.after}
-              />
-              <BarChart
-                title="Mobile"
-                beforeData={result.mobileRuns.before}
-                afterData={result.mobileRuns.after}
-              />
-            </div>
+              <h2 className="card-title">Performance per run</h2>
+              <p className="note text-sm text-base-content/70">
+                Each bar represents one Lighthouse run (0 to 100 scale).
+              </p>
+              <div className="tabs tabs-box mt-2 w-fit bg-base-200 p-1">
+                <button
+                  type="button"
+                  className={`tab ${activePerformanceTab === "desktop" ? "tab-active" : ""}`}
+                  onClick={() => setActivePerformanceTab("desktop")}
+                >
+                  Desktop
+                </button>
+                <button
+                  type="button"
+                  className={`tab ${activePerformanceTab === "mobile" ? "tab-active" : ""}`}
+                  onClick={() => setActivePerformanceTab("mobile")}
+                >
+                  Mobile
+                </button>
+              </div>
+              <div className="mt-4">
+                {activePerformanceTab === "desktop" ? (
+                  <BarChart
+                    title="Desktop"
+                    beforeData={result.desktopRuns.before}
+                    afterData={result.desktopRuns.after}
+                  />
+                ) : (
+                  <BarChart
+                    title="Mobile"
+                    beforeData={result.mobileRuns.before}
+                    afterData={result.mobileRuns.after}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
