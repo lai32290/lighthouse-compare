@@ -211,11 +211,20 @@ function BarChart({
           {Array.from({ length: maxLength }).map((_, index) => {
             const before = beforeData[index];
             const after = afterData[index];
+            const beforeTip =
+              typeof before === "number"
+                ? `Before: ${before.toFixed(1)}`
+                : "Before: N/A";
+            const afterTip =
+              typeof after === "number"
+                ? `After: ${after.toFixed(1)}`
+                : "After: N/A";
             return (
               <div className="bar-group" key={`run-${index + 1}`}>
                 <div className="bars">
                   <div
-                    className="bar before"
+                    className="bar before tooltip tooltip-top"
+                    data-tip={beforeTip}
                     style={{
                       height:
                         typeof before === "number"
@@ -223,14 +232,11 @@ function BarChart({
                           : "0%",
                       opacity: typeof before === "number" ? 1 : 0.2,
                     }}
-                    title={
-                      typeof before === "number"
-                        ? `Before: ${before.toFixed(1)}`
-                        : "Before: N/A"
-                    }
+                    title={beforeTip}
                   />
                   <div
-                    className="bar after"
+                    className="bar after tooltip tooltip-top"
+                    data-tip={afterTip}
                     style={{
                       height:
                         typeof after === "number"
@@ -238,11 +244,7 @@ function BarChart({
                           : "0%",
                       opacity: typeof after === "number" ? 1 : 0.2,
                     }}
-                    title={
-                      typeof after === "number"
-                        ? `After: ${after.toFixed(1)}`
-                        : "After: N/A"
-                    }
+                    title={afterTip}
                   />
                 </div>
                 <div className="bar-label">{index + 1}</div>
